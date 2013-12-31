@@ -1,0 +1,24 @@
+spellathon_solver
+=================
+A simple shell script for solving the daily spellathon puzzle. Uses the in-built dictionary (/usr/share/dict/words) present in every linux system.
+
+How to use
+==========
+The script is invoked as :
+spellathon <The central letter (or the key letter)> <all the letters including the central one>
+
+e.g. If the puzzle is : rctice cith A in the centre
+The command line should be:
+
+$ ./spellathon k rcticek
+crick
+cricket
+kite
+rick
+tick
+ticker
+tike
+trek
+trick
+trike
+	Total : 10
