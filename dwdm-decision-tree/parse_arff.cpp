@@ -8,9 +8,8 @@
 
 using namespace std;
 
-enum Type { NOMINAL, REAL, NUMERIC, BAD };
+enum Type { NOMINAL, REAL, NUMERIC, BAD, MISSING };
 struct Field {
-
 	enum Type type;
 	union Value_type {
 		double rval;
@@ -21,22 +20,18 @@ struct Field {
 
 	} value;
 
-	Field() {
-		type = BAD;
-	}
+	Field() : type(BAD) {	 }
+	Field (enum Type) : type(MISSING) {	}
 
-	Field(long val, int) {
-		type = NOMINAL;
+	Field(long val, int) : type(NOMINAL) { 
 		value.nval = val;
 	}
 
-	Field(double val) {
-		type = REAL;
+	Field(double val) : type(REAL) {
 		value.rval = val;
 	}
 
-	Field(long val) {
-		type = NUMERIC;
+	Field(long val) : type(NUMERIC) {
 		value.nval = val;
 	}
 
@@ -53,13 +48,8 @@ struct Field {
 		}
 	}
 
-	long get_num() const {
-		return value.nval;
-	}
-
-	long get_real() const {
-		return value.rval;
-	}
+	long get_num() const { return value.nval; }
+	long get_real() const { return value.rval; }
 
 	~Field() { }
 };
@@ -76,10 +66,7 @@ string strip_spaces(string& str) {
 template<typename T>
 bool is_type(const string& s, T& i) {
 	stringstream ss(s);
-	ss>>i;
-	stringstream ss2;
-	ss2<<i;
-	return ss.str() == ss2.str();
+	return (ss>>i);
 }
 
 struct Row {
@@ -94,12 +81,15 @@ struct Attribute {
 	Attribute() : name("UNDEFINED"), type(BAD)
 	{	}
 };
+
 Field make_field(string& str, Attribute& attr) {
 	strip_spaces(str);
 	long v;
 	double d;
 	vector<string>::iterator iter;
-	if (attr.type == NUMERIC && is_type<long>(str, v))
+	if (str == "?")
+		return Field(MISSING);
+	else if (attr.type == NUMERIC && is_type<long>(str, v))
 		return Field(v);
 	else if (attr.type == REAL && is_type<double>(str, d))
 		return Field(d);
@@ -150,6 +140,9 @@ void print_table(Table& tab) {
 				case REAL:
 					cout<<tab.data[i].fields[j].get_real()<<'\t';
 					break;
+				case MISSING:
+					cout<<'?'<<'\t';
+					break;
 			}
 		}
 	}
@@ -177,6 +170,15 @@ bool isspace(string& str) {
 	return true;
 }
 
+bool is_comment(const string& str) {
+	int i;
+	for (i = 0; i < str.size() && isspace(str[i]); ++i)
+		;
+	if (str[i] == '%')
+		return true;
+	return false;
+}
+
 Table* read_arff(string name) {
 	ifstream fin(name);
 
@@ -189,7 +191,11 @@ Table* read_arff(string name) {
 	string word, line;
 	char c;
 
-	if (fin>>word) {
+	while (getline(fin, line) && (isspace(line) || is_comment(line)))
+		;
+
+	stringstream ss(line);
+	if (ss>>word) {
 		if (tolower(word) == "@relation") {
 			if (getline(fin, word)) tab->name = word;
 		}
@@ -200,7 +206,7 @@ Table* read_arff(string name) {
 	}
 
 	while (!fin.eof() && getline(fin, line)) {
-		if (isspace(line))
+		if (isspace(line) || is_comment(line))
 			continue;
 		string name, kind;
 		Attribute attr;
@@ -250,7 +256,7 @@ Table* read_arff(string name) {
 		}
 	
 	while (!fin.eof() && getline(fin, line)) {
-		if (isspace(line))
+		if (isspace(line) || is_comment(line))
 			continue;
 
 		line.push_back(',');
@@ -272,16 +278,9 @@ Table* read_arff(string name) {
 }
 
 int main() {
-	Table* tab = read_arff("classifier.arff");
+	Table* tab = read_arff("iris.arff");
 	if (tab != nullptr)
 		print_table(*tab);
 
 	return 0;
 }
-	
-
-
-
-
-
-
