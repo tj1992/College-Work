@@ -278,7 +278,7 @@ Table* read_arff(string name) {
 }
 
 int main() {
-	Table* tab = read_arff("iris.arff");
+	Table* tab = read_arff("classifier.arff");
 	if (tab != nullptr)
 		print_table(*tab);
 
