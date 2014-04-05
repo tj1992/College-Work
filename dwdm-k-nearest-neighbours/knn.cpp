@@ -1,18 +1,16 @@
 #include <iostream>
+#include <cstdlib>
 #include <fstream>
 #include <vector>
 #include <algorithm>
 #include <map>
-
 using namespace std;
 
 struct Point {
 	int x, y;
 	int type;
-
 	Point () : x(0), y(0), type(0)
 	{	}
-
 	Point (int xx, int yy) : x(xx), y(yy), type(0)
 	{	}
 };
@@ -20,7 +18,6 @@ struct Point {
 struct Metric {
 	int type;
 	float dist;
-
 	Metric () : type (0), dist(0)
 	{	}
 };
@@ -32,16 +29,13 @@ bool operator < (const Metric& a, const Metric& b) {
 bool read_file (string fname, vector<Point>& points) {
 	int x, y;
 	ifstream ifs(fname);
-
 	if (!ifs) {
 		cerr<<"Error opening file \""<<fname<<"\"!\n";
 		return false;
 	}
-
 	while (ifs>>x>>y) {
 		points.push_back (Point (x, y));
 	}
-
 	return true;
 }
 
@@ -77,10 +71,8 @@ void k_nearest_neighbour (vector <Point>& points, int k) {
 		cerr<<"k parameter greater than sample size!\nNothing to do!\n";
 		return;
 	}
-
 	for (int i = 0; i < k; ++i)
 		points[i].type = i+1;
-
 	vector <Metric> k_min(points.size()-1);
 	do {
 		for (int i = k; i < points.size(); ++i) {
@@ -95,13 +87,14 @@ void print_list (const vector <Point>& points) {
 		cout<<char('A'+i)<<' '<<points[i].x<<' '<<points[i].y<<' '<<points[i].type<<'\n';
 }
 
-int main () {
+int main (int argc, char* argv[]) {
 	vector <Point> points;
-
+	int k = 2;
+	if (--argc > 0)
+		k = atoi(*(++argv));
 	if (read_file ("test", points)) {
-		k_nearest_neighbour (points, 3);
+		k_nearest_neighbour (points, k);
 		print_list (points);
 	}
-
 	return 0;
 }

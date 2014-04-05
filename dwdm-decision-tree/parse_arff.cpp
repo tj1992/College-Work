@@ -197,7 +197,8 @@ Table* read_arff(string name) {
 	stringstream ss(line);
 	if (ss>>word) {
 		if (tolower(word) == "@relation") {
-			if (getline(fin, word)) tab->name = word;
+			if (getline(ss, word))
+				tab->name = word;
 		}
 		else {
 			cerr<<"Parsing error: expected @relation got "<<word<<'\n';
@@ -277,10 +278,10 @@ Table* read_arff(string name) {
 	return tab;
 }
 
-int main() {
+Table* init() {
 	Table* tab = read_arff("classifier.arff");
 	if (tab != nullptr)
 		print_table(*tab);
 
-	return 0;
+	return tab;
 }
