@@ -2,17 +2,18 @@
 # xkcd_get: xkcd comics downloader for offline reading
 
 prog_name=$0
-xkcd_dir=/home/abhishek/Downloads/xkcd/
+xkcd_dir=$HOME/Downloads/xkcd/
 wget_args="--no-verbose -erobots=off --adjust-extension --span-hosts --exclude-domains google.com --convert-links --page-requisites"
 tmpfile=/tmp/$prog_name.$$
 xkcd_json_url="http://xkcd.com/info.0.json"
 
 print_usage_exit() {
 	printf "Usage: %s [-d -c -h]
-		\n  -d                 download the comics missing from www.xkcd.com/ directory
-		\n  -c                 convert the links present in HTML files to point to local ones
-		\n  -h                 display this help and exit
-		\n  -p [directory]     get/set the download directory path
+		\n  -d              download the comics missing from www.xkcd.com/ directory
+		\n  -t              check whether a new comic is available
+		\n  -c              convert the links present in HTML files to point to local ones
+		\n  -h              display this help and exit
+		\n  -p [directory]  get/set the download directory path
 		\nDownloads the xkcd.com comics for offline reading
 		\n" $prog_name 1>&2;
 	exit 0
@@ -43,16 +44,16 @@ overwrite() {						# args: <filename> <command> <args-to-command>
 			cp $old $file 			# restore old copy
 			if test $? != 0			# check whether restoration failed
 			then
-				error "overwrite failed: $file corrupted"
+				error "overwrite failed: $file corrupted" rm -f $new $old
 			fi
 		fi
 	else
-		error "overwrite: $1 failed, $file unchanged" 
+		error "overwrite: $1 failed, $file unchanged" rm -f $new
 	fi
 	rm -f $new $old					# clean up
 }
 					
-# convert the links in $@ to local directories
+# convert the links in $@ to local directories and strip the <script> tag
 convert() {						# args: <files>
 	trap 'error "convert trapped"' SIGHUP SIGINT SIGTERM
 	for i in $@
@@ -60,8 +61,11 @@ convert() {						# args: <files>
 		overwrite $i "sed 's^\(http://www.xkcd.com/\)\([1-9][0-9]*\)/^\2.html^g
 				   s^http://www.xkcd.com/archive^archive.html^g
 				     s^\(http://\)\(imgs.xkcd.com\)^../\2^g
-				     1,14s^http://www.xkcd.com/^^g' $i"
-				     # convert the links to local ones
+				     1,14s^http://www.xkcd.com/^^g' $i | awk 'BEGIN { pmat=0; }
+									      /<script/,/<\/script>/ { pmat=1 }
+									      pmat == 0 { print }
+									      pmat == 1 { pmat=0 }'"
+				     # convert the links to local ones and strip the <script> tag
 	done
 }
 
@@ -121,10 +125,13 @@ prepare_list() {
 
 # ********************************************************************** START **********************************************************************
 
-while getopts ":dchp:" opt; do
+while getopts ":dtchp:" opt; do
 	case $opt in
 		d)
 			dl_flag=1
+			;;
+		t)
+			test_flag=1
 			;;
 		c)
 			convert "$(ls www.xkcd.com/*.html)"
@@ -134,10 +141,6 @@ while getopts ":dchp:" opt; do
 			print_usage_exit
 			;;
 		p)
-			#if [ ! -e "$OPTARG" ]; then
-			#	echo "$prog_name: error: $OPTARG doesn't exist!!"
-			#	exit 1
-			#fi
 			sed -r -i "s|^(xkcd_dir=)(.*)$|\1$OPTARG|" xkcd_get.sh
 			exit 0
 			;;
@@ -162,12 +165,13 @@ trap 'error "trapped"' SIGHUP SIGINT SIGTERM
 printf "START: %s\n" "$(date)" >$tmpfile
 
 if [ ! -e $xkcd_dir ]; then						# create download directory if not present
+	if test "$test_flag" == 1; then error "$xkcd_dir does not exist. Exiting!!"; fi 	# don't create $xkcd_dir with $test_flag set
 	mkdir $xkcd_dir 2>> $tmpfile
 	if test $? != 0; then error "mkdir failed!!"; fi
 fi
 cd $xkcd_dir								# move to $xkcd_dir
 
-if [ -z $dl_flag ]; then
+if [ -z "$dl_flag" -o -n "$test_flag" ]; then
 	prepare_list
 else
 	tempout=$(find www.xkcd.com -maxdepth 1 -type f | cut -c 14- | sort -n | awk -F '.' 'BEGIN { IN=1 } /[0-9][1-9]*/ { if ($1 != IN) { if (IN != 404) printf "www.xkcd.com/%d\twww.xkcd.com/%d.html\n", IN, IN; IN++ } IN++; }')	# get the missing comics (p.s. 404 is special case; comic #404 does not exist!)
@@ -177,6 +181,11 @@ fi
 
 if [ -z "$pages" ]; then
 	printf "Nothing to download!! exiting!!\n"
+	exit 0
+fi
+
+if [ -n "$test_flag" ]; then
+	printf "New Comic is available!\nDownload list: %s\n" "$(echo "$pages" | sed 's/[^0-9 ]//g')"
 	exit 0
 fi
 
