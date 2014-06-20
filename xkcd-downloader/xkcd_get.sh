@@ -15,7 +15,7 @@ print_usage_exit() {
 		\n  -h              display this help and exit
 		\n  -p [directory]  get/set the download directory path
 		\nDownloads the xkcd.com comics for offline reading
-		\n" $prog_name 1>&2;
+		\n" "$prog_name" 1>&2;
 	exit 0
 }
 
@@ -23,9 +23,9 @@ print_usage_exit() {
 error() {						# args: <msg> <command> <args-to-command>
 	printf "$prog_name: %s" "$1"
 	printf "\n*** log ***:\n"			# print the log file
-	cat $tmpfile
-	shift; eval $@					# evaluate the commands
-	rm -f $tmpfile
+	cat "$tmpfile"
+	shift; eval "$@"					# evaluate the commands
+	rm -f "$tmpfile"
 	exit 1
 }
 
@@ -34,31 +34,31 @@ overwrite() {						# args: <filename> <command> <args-to-command>
 	file=$1; shift					# save the filename and shift the args
 	new=/tmp/overwr1.$$; old=/tmp/overwr.$$		# generate unique names ($$ returns current pid)
 	trap 'error "overwrite trapped" rm -f $new $old' SIGHUP SIGINT SIGTERM # clean-up if trapped
-	eval "$@" >$new					# run the commands and save output in a new file
+	eval "$@" >"$new"					# run the commands and save output in a new file
 	if test $? == 0					# successful execution ?
 	then
-		cp $file $old				# save old copy
-		cp $new $file				# make new one
+		cp "$file" "$old"				# save old copy
+		cp "$new" "$file"				# make new one
 		if test $? != 0				# copy failed?
 		then
-			cp $old $file 			# restore old copy
+			cp "$old" "$file" 			# restore old copy
 			if test $? != 0			# check whether restoration failed
 			then
-				error "overwrite failed: $file corrupted" rm -f $new $old
+				error "overwrite failed: $file corrupted" rm -f "$new" "$old"
 			fi
 		fi
 	else
-		error "overwrite: $1 failed, $file unchanged" rm -f $new
+		error "overwrite: $1 failed, $file unchanged" rm -f "$new"
 	fi
-	rm -f $new $old					# clean up
+	rm -f "$new" "$old"					# clean up
 }
 					
 # convert the links in $@ to local directories and strip the <script> tag
 convert() {						# args: <files>
 	trap 'error "convert trapped"' SIGHUP SIGINT SIGTERM
-	for i in $@
+	for i in "$@"
 	do
-		overwrite $i "sed 's^\(http://www.xkcd.com/\)\([1-9][0-9]*\)/^\2.html^g
+		overwrite "$i" "sed 's^\(http://www.xkcd.com/\)\([1-9][0-9]*\)/^\2.html^g
 				   s^http://www.xkcd.com/archive^archive.html^g
 				     s^\(http://\)\(imgs.xkcd.com\)^../\2^g
 				     1,14s^http://www.xkcd.com/^^g' $i | awk 'BEGIN { pmat=0; }
@@ -73,8 +73,8 @@ convert() {						# args: <files>
 create_log_link() {								# no args
 	ls www.xkcd.com/ | sort -n | tail -n 1 | sed "s/[^0-9]//g"  >log	# save the latest comic # to "log" (alt: ls -c; if archive.html is updated before downloading the comics)
 	
-	if [ ! -e xkcd -o ! -z create_link ]; then							# create symlink to 'archive.html' if not present
-		ln -sf www.xkcd.com/archive.html xkcd 1>&2 2>> $tmpfile		# redirect stdout to same stream as stderr and append to $tmpfile
+	if [ ! -e xkcd -o ! -z "$create_link" ]; then							# create symlink to 'archive.html' if not present
+		ln -sf www.xkcd.com/archive.html xkcd 1>&2 2>> "$tmpfile"		# redirect stdout to same stream as stderr and append to $tmpfile
 		if test $? != 0; then error "ln failed!!"; fi
 	fi
 }
@@ -83,8 +83,8 @@ create_log_link() {								# no args
 get_latest() {
 	latest_json=$(curl -s $xkcd_json_url)		# download the json file
 	if [ -z "$latest_json" ]; then error "curl: download failed!"; fi
-	latest=$(echo $latest_json | jq '.num')		# parse using jq
-	if test $latest == "null"; then error "bad json format"; fi
+	latest=$(echo "$latest_json" | jq '.num')		# parse using jq
+	if test "$latest" == "null"; then error "bad json format"; fi
 }
 	
 # prepare the list of comics to be downloaded
@@ -102,13 +102,13 @@ prepare_list() {
 	#latest=`curl -s xkcd.com | egrep -o 'http://xkcd.com/([1-9][0-9]*)' | sed 's/[^0-9]//g'`	# get the latest comic
 	get_latest
 	
-	if [ $(($latest - $curr)) -gt 50 ]; then				# download in batches of size 50
-		latest=$(($curr + 50))
+	if [ $((latest - curr)) -gt 50 ]; then				# download in batches of size 50
+		latest=$((curr + 50))
 		recur=1
 	fi
 	
-	if [ $curr -ne $latest ]; then						# prepare the download list
-		for ((i=$curr;i<=$latest;++i))
+	if [ "$curr" -ne "$latest" ]; then						# prepare the download list
+		for ((i=curr; i<=latest; ++i))
 		do
 			pages=$pages" www.xkcd.com/$i"
 			files=$files" www.xkcd.com/${i}.html"
@@ -150,7 +150,7 @@ while getopts ":dtchp:" opt; do
 			;;
 		:)
 			if [ "$OPTARG" == "p" ]; then
-				echo $xkcd_dir
+				echo "$xkcd_dir"
 				exit 0
 			else
 				echo "$prog_name: error: -$OPTARG: expected argument"
@@ -162,14 +162,14 @@ while getopts ":dtchp:" opt; do
 done
 
 trap 'error "trapped"' SIGHUP SIGINT SIGTERM
-printf "START: %s\n" "$(date)" >$tmpfile
+printf "START: %s\n" "$(date)" >"$tmpfile"
 
-if [ ! -e $xkcd_dir ]; then						# create download directory if not present
+if [ ! -e "$xkcd_dir" ]; then						# create download directory if not present
 	if test "$test_flag" == 1; then error "$xkcd_dir does not exist. Exiting!!"; fi 	# don't create $xkcd_dir with $test_flag set
-	mkdir $xkcd_dir 2>> $tmpfile
+	mkdir "$xkcd_dir" 2>> "$tmpfile"
 	if test $? != 0; then error "mkdir failed!!"; fi
 fi
-cd $xkcd_dir								# move to $xkcd_dir
+cd "$xkcd_dir"								# move to $xkcd_dir
 
 if [ -z "$dl_flag" -o -n "$test_flag" ]; then
 	prepare_list
@@ -185,18 +185,18 @@ if [ -z "$pages" ]; then
 fi
 
 if [ -n "$test_flag" ]; then
-	printf "New Comic is available!\nDownload list: %s\n" "$(echo "$pages" | sed 's/[^0-9 ]//g')"
+	printf "New Comic is available!\nDownload list: %s\n" "${pages//[^0-9 ]/}"
 	exit 0
 fi
 
-wget $wget_args $pages 2>&1 | tee -a $tmpfile				# DOWNLOAD!
+wget "$wget_args" "$pages" 2>&1 | tee -a "$tmpfile"				# DOWNLOAD!
 if test $? != 0; then error "wget failed!!"; fi
 
-convert $files
+convert "$files"
 
 create_log_link
 
-rm $tmpfile
+rm "$tmpfile"
 
 if [ ! -z $recur ]; then						# recursive call
 	printf "\n*** Sleeping for 10 seconds... ***\n"
