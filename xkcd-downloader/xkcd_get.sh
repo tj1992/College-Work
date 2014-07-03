@@ -1,9 +1,9 @@
 #!/bin/bash
 # xkcd_get: xkcd comics downloader for offline reading
 
-prog_name=$0
+prog_name=$(basename "$0")
 xkcd_dir=$HOME/Downloads/xkcd/
-wget_args="--no-verbose -erobots=off --adjust-extension --span-hosts --exclude-domains google.com --convert-links --page-requisites"
+wget_args="--no-verbose -erobots=off --adjust-extension --span-hosts --exclude-domains google.com --convert-links --page-requisites --"
 tmpfile=/tmp/$prog_name.$$
 xkcd_json_url="http://xkcd.com/info.0.json"
 
@@ -34,34 +34,34 @@ overwrite() {						# args: <filename> <command> <args-to-command>
 	file=$1; shift					# save the filename and shift the args
 	new=/tmp/overwr1.$$; old=/tmp/overwr.$$		# generate unique names ($$ returns current pid)
 	trap 'error "overwrite trapped" rm -f $new $old' SIGHUP SIGINT SIGTERM # clean-up if trapped
-	eval "$@" >"$new"					# run the commands and save output in a new file
+	eval "$@" >$new					# run the commands and save output in a new file
 	if test $? == 0					# successful execution ?
 	then
-		cp "$file" "$old"				# save old copy
-		cp "$new" "$file"				# make new one
+		cp $file $old				# save old copy
+		cp $new $file				# make new one
 		if test $? != 0				# copy failed?
 		then
-			cp "$old" "$file" 			# restore old copy
+			cp $old $file 			# restore old copy
 			if test $? != 0			# check whether restoration failed
 			then
-				error "overwrite failed: $file corrupted" rm -f "$new" "$old"
+				error "overwrite failed: $file corrupted" rm -f $new $old
 			fi
 		fi
 	else
-		error "overwrite: $1 failed, $file unchanged" rm -f "$new"
+		error "overwrite: $1 failed, $file unchanged" rm -f $new
 	fi
-	rm -f "$new" "$old"					# clean up
+	rm -f $new $old					# clean up
 }
 					
 # convert the links in $@ to local directories and strip the <script> tag
 convert() {						# args: <files>
 	trap 'error "convert trapped"' SIGHUP SIGINT SIGTERM
-	for i in "$@"
+	for i in $@
 	do
 		overwrite "$i" "sed 's^\(http://www.xkcd.com/\)\([1-9][0-9]*\)/^\2.html^g
 				   s^http://www.xkcd.com/archive^archive.html^g
-				     s^\(http://\)\(imgs.xkcd.com\)^../\2^g
-				     1,14s^http://www.xkcd.com/^^g' $i | awk 'BEGIN { pmat=0; }
+				   s^\(http://\)\(imgs.xkcd.com\)^../\2^g
+				   1,14s^http://www.xkcd.com/^^g' $i | awk 'BEGIN { pmat=0; }
 									      /<script/,/<\/script>/ { pmat=1 }
 									      pmat == 0 { print }
 									      pmat == 1 { pmat=0 }'"
@@ -174,7 +174,7 @@ cd "$xkcd_dir"								# move to $xkcd_dir
 if [ -z "$dl_flag" -o -n "$test_flag" ]; then
 	prepare_list
 else
-	tempout=$(find www.xkcd.com -maxdepth 1 -type f | cut -c 14- | sort -n | awk -F '.' 'BEGIN { IN=1 } /[0-9][1-9]*/ { if ($1 != IN) { if (IN != 404) printf "www.xkcd.com/%d\twww.xkcd.com/%d.html\n", IN, IN; IN++ } IN++; }')	# get the missing comics (p.s. 404 is special case; comic #404 does not exist!)
+	tempout=$(find www.xkcd.com -maxdepth 1 -type f | cut -c 14- | sort -n | awk -F '.' 'BEGIN { IN=1 } /[0-9][1-9]*/ { while ($1 > IN) { if (IN != 404) printf "www.xkcd.com/%d\twww.xkcd.com/%d.html\n", IN, IN; IN++ } IN++; }')	# get the missing comics (p.s. 404 is special case; comic #404 does not exist!)
 	pages=$(echo "$tempout" | cut -f 1)				# pages to be downloaded
 	files=$(echo "$tempout" | cut -f 2)				# files to be converted
 fi
@@ -189,7 +189,7 @@ if [ -n "$test_flag" ]; then
 	exit 0
 fi
 
-wget "$wget_args" "$pages" 2>&1 | tee -a "$tmpfile"				# DOWNLOAD!
+wget $wget_args $pages  >>"$tmpfile"				# DOWNLOAD!
 if test $? != 0; then error "wget failed!!"; fi
 
 convert "$files"
